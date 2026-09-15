@@ -1,1 +1,7 @@
-<Solution />
+<Solution>
+  <Project Path="MiniCMS.Api/MiniCMS.Api.csproj" Id="f7b5316b-b330-499a-a40c-ec4f0ce4c49f" />
+  <Project Path="MiniCMS.Application/MiniCMS.Application.csproj" Id="7ce0e30e-e684-4514-839c-b1d1f0eb3fce" />
+  <Project Path="MiniCMS.Domain/MiniCMS.Domain.csproj" Id="33d15f6a-2537-488f-acd3-539c8f49c527" />
+  <Project Path="MiniCMS.Infrastructure/MiniCMS.Infrastructure.csproj" Id="d7eea399-2a02-47e5-a56a-6e83fa8c8dfb" />
+  <Project Path="MiniCMS.Web/MiniCMS.Web.csproj" Id="067fd4e9-9104-4c85-acef-4a6b8475f7b0" />
+</Solution>

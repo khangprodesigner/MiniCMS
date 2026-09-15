@@ -1,0 +1,6 @@
+@MiniCMS.Api_HostAddress = http://localhost:5211
+
+GET {{MiniCMS.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
