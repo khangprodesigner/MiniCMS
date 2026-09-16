@@ -56,7 +56,9 @@ namespace MiniCMS.Infrastructure.Data
 
                 // Soft-Delete & Audit Fields
                 entity.Property(c => c.IsDeleted).HasDefaultValue(false);
-                entity.Property(c => c.CreatedAt).HasDefaultValue("GETUTCDATE()");
+
+                // DefaultValueSql có nghĩa là câu lệnh này của SQL
+                entity.Property(c => c.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
 
                 // Mọi truy vấn ngầm định sẽ chỉ lấy IsDeleted == false
                 entity.HasQueryFilter(c => !c.IsDeleted);
