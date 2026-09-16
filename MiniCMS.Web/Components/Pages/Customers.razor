@@ -1,0 +1,260 @@
+﻿@page "/customers"
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject NavigationManager Navigation
+@inject MiniCMS.Web.Services.TokenStorageService TokenService
+@using MiniCMS.Application.DTOs
+@using MiniCMS.Web.Components
+
+<PageTitle>Quản lý khách hàng - MiniCMS</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge">
+    <MudText Typo="Typo.h5" Class="mb-4" Style="font-weight: 700;">Danh Sách Khách Hàng</MudText>
+
+    <MudPaper Elevation="2" Class="pa-4 mb-4">
+        <MudGrid Spacing="2" Class="align-center">
+            <MudItem xs="12" sm="6" md="4">
+                <MudTextField @bind-Value="searchTerm"
+                              Placeholder="Tìm kiếm theo mã, họ tên, SĐT..."
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              IconSize="Size.Medium"
+                              Clearable="true"
+                              OnClearButtonClick="ReloadData"
+                              OnKeyDown="@HandleSearchKeyDown"
+                              Immediate="false"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="12" sm="4" md="3">
+                <MudSelect T="bool?" Label="Trạng thái" @bind-Value="selectedActiveStatus" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                    <MudSelectItem T="bool?" Value="null">Tất cả</MudSelectItem>
+                    <MudSelectItem T="bool?" Value="true">Đang hoạt động</MudSelectItem>
+                    <MudSelectItem T="bool?" Value="false">Tạm khóa</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="2" md="2">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.FilterAlt" OnClick="ReloadData">
+                    Lọc
+                </MudButton>
+            </MudItem>
+            <MudSpacer />
+            <MudItem xs="12" sm="12" md="3" Class="d-flex justify-end">
+                <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenCreateDialog">
+                    Thêm Khách Hàng
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    <MudTable Items="@customers"
+              Loading="@isLoading"
+              Hover="true"
+              Bordered="false"
+              Striped="true"
+              Elevation="2">
+        <HeaderContent>
+            <MudTh>Mã KH</MudTh>
+            <MudTh>Họ và Tên</MudTh>
+            <MudTh>Email</MudTh>
+            <MudTh>Số điện thoại</MudTh>
+            <MudTh>Ngày sinh</MudTh>
+            <MudTh>Trạng thái</MudTh>
+            <MudTh Style="text-align: right;">Thao tác</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Mã KH"><strong>@context.CustomerCode</strong></MudTd>
+            <MudTd DataLabel="Họ và Tên">@context.FullName</MudTd>
+            <MudTd DataLabel="Email">@context.Email</MudTd>
+            <MudTd DataLabel="Số điện thoại">@context.PhoneNumber</MudTd>
+            <MudTd DataLabel="Ngày sinh">@context.DateOfBirth.ToString("dd/MM/yyyy")</MudTd>
+            <MudTd DataLabel="Trạng thái">
+                @if (context.IsActive)
+                {
+                    <MudChip T="string" Color="Color.Success" Size="Size.Small">Hoạt động</MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Color="Color.Default" Size="Size.Small">Tạm khóa</MudChip>
+                }
+            </MudTd>
+            <MudTd Style="text-align: right;">
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditDialog(context))" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteCustomer(context))" />
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Typo="Typo.body2" Class="pa-4 text-center">Không tìm thấy dữ liệu khách hàng nào.</MudText>
+        </NoRecordsContent>
+        <LoadingContent>
+            <MudText Typo="Typo.body2" Class="pa-4 text-center">Đang tải danh sách...</MudText>
+        </LoadingContent>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[] { 5, 10, 20, 50 }" RowsPerPageString="Số dòng mỗi trang:" />
+        </PagerContent>
+    </MudTable>
+</MudContainer>
+
+@code {
+    private List<CustomerDto> customers = new();
+    private bool isLoading = true;
+    private string? searchTerm;
+    private bool? selectedActiveStatus;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadCustomersAsync();
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await ReloadData();
+        }
+    }
+
+    private async Task ReloadData()
+    {
+        await LoadCustomersAsync();
+    }
+
+    private async Task LoadCustomersAsync()
+    {
+        isLoading = true;
+        try
+        {
+            var query = new List<string>();
+            if (!string.IsNullOrWhiteSpace(searchTerm)) query.Add($"searchTerm={Uri.EscapeDataString(searchTerm)}");
+            if (selectedActiveStatus.HasValue) query.Add($"isActive={selectedActiveStatus.Value}");
+
+            var queryString = query.Count > 0 ? "?" + string.Join("&", query) : string.Empty;
+            var response = await Http.GetAsync($"api/Customers{queryString}");
+
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                await TokenService.RemoveTokenAsync();
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                customers = await response.Content.ReadFromJsonAsync<List<CustomerDto>>() ?? new();
+            }
+            else
+            {
+                Snackbar.Add("Không thể tải danh sách khách hàng.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Lỗi kết nối API: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task OpenCreateDialog()
+    {
+        var parameters = new DialogParameters<CustomerDialog>
+        {
+            { x => x.Model, new CreateCustomerDto() },
+            { x => x.IsEdit, false }
+        };
+
+        var dialog = await DialogService.ShowAsync<CustomerDialog>("Thêm mới khách hàng", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled && result.Data is CreateCustomerDto dto)
+        {
+            var response = await Http.PostAsJsonAsync("api/Customers", dto);
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Thêm khách hàng thành công!", Severity.Success);
+                await LoadCustomersAsync();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Snackbar.Add($"Lỗi: {error}", Severity.Error);
+            }
+        }
+    }
+
+    private async Task OpenEditDialog(CustomerDto customer)
+    {
+        var editModel = new CreateCustomerDto
+        {
+            CustomerCode = customer.CustomerCode,
+            FullName = customer.FullName,
+            Email = customer.Email,
+            PhoneNumber = customer.PhoneNumber,
+            DateOfBirth = customer.DateOfBirth,
+            IsActive = customer.IsActive
+        };
+
+        var parameters = new DialogParameters<CustomerDialog>
+        {
+            { x => x.Model, editModel },
+            { x => x.IsEdit, true }
+        };
+
+        var dialog = await DialogService.ShowAsync<CustomerDialog>("Cập nhật thông tin", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled && result.Data is CreateCustomerDto dto)
+        {
+            var updateDto = new UpdateCustomerDto
+            {
+                FullName = dto.FullName,
+                Email = dto.Email,
+                PhoneNumber = dto.PhoneNumber,
+                DateOfBirth = dto.DateOfBirth,
+                IsActive = dto.IsActive
+            };
+
+            var response = await Http.PutAsJsonAsync($"api/Customers/{customer.Id}", updateDto);
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Cập nhật thành công!", Severity.Success);
+                await LoadCustomersAsync();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Snackbar.Add($"Lỗi: {error}", Severity.Error);
+            }
+        }
+    }
+
+    private async Task DeleteCustomer(CustomerDto customer)
+    {
+        bool? confirm = await DialogService.ShowMessageBoxAsync(
+            "Xác nhận xóa",
+            $"Bạn có chắc chắn muốn xóa khách hàng '{customer.FullName}' ({customer.CustomerCode}) không?",
+            yesText: "Xóa",
+            cancelText: "Hủy");
+
+        if (confirm == true)
+        {
+            var response = await Http.DeleteAsync($"api/Customers/{customer.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Đã xóa khách hàng thành công.", Severity.Success);
+                await LoadCustomersAsync();
+            }
+            else
+            {
+                Snackbar.Add("Xóa khách hàng thất bại.", Severity.Error);
+            }
+        }
+    }
+}
