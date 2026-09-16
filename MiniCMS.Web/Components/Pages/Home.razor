@@ -1,7 +1,169 @@
 ﻿@page "/"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject MiniCMS.Web.Services.TokenStorageService TokenService
+@inject ISnackbar Snackbar
+@using MiniCMS.Application.DTOs
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Tổng quan - CEP MiniCMS</PageTitle>
 
-<h1>Hello, world!</h1>
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <!-- Header chào mừng -->
+    <div class="d-flex justify-space-between align-center mb-6">
+        <div>
+            <MudText Typo="Typo.h5" Style="font-weight: 700;">Hệ thống Quản lý Khách hàng</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Chào mừng bạn quay trở lại cổng thông tin CEP MiniCMS</MudText>
+        </div>
+        <MudButton Variant="Variant.Filled" 
+                   Color="Color.Primary" 
+                   StartIcon="@Icons.Material.Filled.People" 
+                   OnClick="@(() => Navigation.NavigateTo("/customers"))">
+            Vào Danh Sách Khách Hàng
+        </MudButton>
+    </div>
 
-Welcome to your new app.
+    <!-- Thẻ thống kê (KPI Cards) -->
+    <MudGrid Spacing="3" Class="mb-6">
+        <MudItem xs="12" sm="6" md="4">
+            <MudPaper Elevation="2" Class="pa-4 d-flex justify-space-between align-center" Style="border-left: 5px solid var(--mud-palette-primary);">
+                <div>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">TỔNG KHÁCH HÀNG</MudText>
+                    @if (isLoadingStats)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mt-1" />
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.h4" Style="font-weight: 700;">@totalCustomers</MudText>
+                    }
+                </div>
+                <MudAvatar Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Large">
+                    <MudIcon Icon="@Icons.Material.Filled.Group" Size="Size.Medium" />
+                </MudAvatar>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="4">
+            <MudPaper Elevation="2" Class="pa-4 d-flex justify-space-between align-center" Style="border-left: 5px solid var(--mud-palette-success);">
+                <div>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">ĐANG HOẠT ĐỘNG</MudText>
+                    @if (isLoadingStats)
+                    {
+                        <MudProgressCircular Size="Size.Small" Color="Color.Success" Indeterminate="true" Class="mt-1" />
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.h4" Color="Color.Success" Style="font-weight: 700;">@activeCustomers</MudText>
+                    }
+                </div>
+                <MudAvatar Color="Color.Success" Variant="Variant.Outlined" Size="Size.Large">
+                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Medium" />
+                </MudAvatar>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="4">
+            <MudPaper Elevation="2" Class="pa-4 d-flex justify-space-between align-center" Style="border-left: 5px solid var(--mud-palette-warning);">
+                <div>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">TẠM KHÓA</MudText>
+                    @if (isLoadingStats)
+                    {
+                        <MudProgressCircular Size="Size.Small" Color="Color.Warning" Indeterminate="true" Class="mt-1" />
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.h4" Color="Color.Warning" Style="font-weight: 700;">@inactiveCustomers</MudText>
+                    }
+                </div>
+                <MudAvatar Color="Color.Warning" Variant="Variant.Outlined" Size="Size.Large">
+                    <MudIcon Icon="@Icons.Material.Filled.PauseCircle" Size="Size.Medium" />
+                </MudAvatar>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <!-- Khối thông tin & Thao tác nhanh -->
+    <MudGrid Spacing="3">
+        <MudItem xs="12" md="8">
+            <MudPaper Elevation="2" Class="pa-5 h-100"">
+                <MudText Typo="Typo.h6" Class="mb-2">Quy chuẩn nghiệp vụ hệ thống</MudText>
+                <MudText Typo="Typo.body2" Class="mb-3 text-muted">
+                    Hệ thống MiniCMS tuân thủ mô hình <strong>Clean Architecture</strong>, xác thực qua <strong>JWT Bearer</strong>:
+                </MudText>
+                <MudList T="string" Dense="true">
+                    <MudListItem Icon="@Icons.Material.Filled.VerifiedUser" Text="Xác thực tự động lưu trữ Token và đính kèm Authorization Header." />
+                    <MudListItem Icon="@Icons.Material.Filled.Rule" Text="Kiểm tra nghiệp vụ FluentValidation (Khách hàng đủ 15 tuổi, SĐT 10 số, Email hợp lệ)." />
+                    <MudListItem Icon="@Icons.Material.Filled.DeleteSweep" Text="Áp dụng cơ chế Soft-delete bảo toàn lịch sử dữ liệu khách hàng." />
+                </MudList>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="4">
+            <MudPaper Elevation="2" Class="pa-5 h-100 d-flex flex-column justify-space-between">
+                <MudText Typo="Typo.h6">Thao tác nhanh</MudText>
+                <MudButton Variant="Variant.Outlined" 
+                           Color="Color.Primary" 
+                           StartIcon="@Icons.Material.Filled.PersonAdd" 
+                           FullWidth="true"
+                           OnClick="@(() => Navigation.NavigateTo("/customers"))">
+                    Thêm mới khách hàng
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" 
+                           Color="Color.Secondary" 
+                           StartIcon="@Icons.Material.Filled.Search" 
+                           FullWidth="true"
+                           OnClick="@(() => Navigation.NavigateTo("/customers"))">
+                    Tìm kiếm & Tra cứu
+                </MudButton>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+@code {
+    private bool isLoadingStats = true;
+    private int totalCustomers = 0;
+    private int activeCustomers = 0;
+    private int inactiveCustomers = 0;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadDashboardDataAsync();
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadDashboardDataAsync()
+    {
+        isLoadingStats = true;
+        try
+        {
+            var response = await Http.GetAsync("api/Customers");
+            
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                await TokenService.RemoveTokenAsync();
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                var customers = await response.Content.ReadFromJsonAsync<List<CustomerDto>>() ?? new();
+                totalCustomers = customers.Count;
+                activeCustomers = customers.Count(c => c.IsActive);
+                inactiveCustomers = totalCustomers - activeCustomers;
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Không thể kết nối máy chủ: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoadingStats = false;
+        }
+    }
+}
