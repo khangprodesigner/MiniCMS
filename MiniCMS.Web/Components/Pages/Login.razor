@@ -1,0 +1,134 @@
+﻿@page "/login"
+@rendermode InteractiveServer
+@layout EmptyLayout
+@inject HttpClient Http
+@inject MiniCMS.Web.Services.TokenStorageService TokenService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@using MiniCMS.Application.DTOs
+
+<PageTitle>Đăng nhập - MiniCMS</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center justify-center" Style="height: 100vh;">
+    <MudPaper Elevation="4" Class="pa-8" Style="width: 100%; max-width: 420px; border-radius: 12px;">
+        <div class="text-center mb-6">
+            <MudIcon Icon="@Icons.Material.Filled.AccountBalance" Color="Color.Primary" Size="Size.Large" />
+            <MudText Typo="Typo.h5" Class="mt-2" Style="font-weight: 700;">MiniCMS</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Hệ thống Quản lý Khách hàng cơ bản</MudText>
+        </div>
+
+        <MudForm @ref="form" @bind-IsValid="@isFormValid">
+            <MudTextField T="string" 
+                          Label="Tên đăng nhập" 
+                          @bind-Value="loginModel.Username" 
+                          Variant="Variant.Outlined" 
+                          Margin="Margin.Dense"
+                          Required="true"
+                          RequiredError="Vui lòng nhập tên đăng nhập"
+                          Class="mb-4" />
+
+            <MudTextField T="string" 
+                          Label="Mật khẩu" 
+                          @bind-Value="loginModel.Password" 
+                          Variant="Variant.Outlined" 
+                          Margin="Margin.Dense"
+                          InputType="@passwordInput"
+                          Adornment="Adornment.End"
+                          AdornmentIcon="@passwordInputIcon"
+                          OnAdornmentClick="TogglePasswordVisibility"
+                          Required="true"
+                          RequiredError="Vui lòng nhập mật khẩu"
+                          Class="mb-6" />
+
+            <MudButton Variant="Variant.Filled" 
+                       Color="Color.Primary" 
+                       FullWidth="true" 
+                       Size="Size.Large"
+                       OnClick="HandleLogin"
+                       Disabled="@isLoading">
+                @if (isLoading)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                    <MudText Class="ms-2">Đang xử lý...</MudText>
+                }
+                else
+                {
+                    <MudText>Đăng nhập</MudText>
+                }
+            </MudButton>
+        </MudForm>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private MudForm form = default!;
+    private bool isFormValid = false;
+    private LoginRequestDto loginModel = new();
+    private bool isLoading = false;
+    private bool isShowPassword = false;
+    private InputType passwordInput = InputType.Password;
+    private string passwordInputIcon = Icons.Material.Filled.VisibilityOff;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Nếu đã đăng nhập trước đó thì tự chuyển vào trong, không bắt login lại
+            var token = await TokenService.GetTokenAsync();
+            if (!string.IsNullOrWhiteSpace(token))
+            {
+                Navigation.NavigateTo("/customers");
+            }
+        }
+    }
+
+    private void TogglePasswordVisibility()
+    {
+        if (isShowPassword)
+        {
+            isShowPassword = false;
+            passwordInputIcon = Icons.Material.Filled.VisibilityOff;
+            passwordInput = InputType.Password;
+        }
+        else
+        {
+            isShowPassword = true;
+            passwordInputIcon = Icons.Material.Filled.Visibility;
+            passwordInput = InputType.Text;
+        }
+    }
+
+    private async Task HandleLogin()
+    {
+        await form.ValidateAsync();
+        if (!isFormValid) return;
+
+        isLoading = true;
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/Auth/login", loginModel);
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<LoginResponseDto>();
+                if (result != null && !string.IsNullOrWhiteSpace(result.Token))
+                {
+                    await TokenService.SetTokenAsync(result.Token);
+                    Snackbar.Add($"Xin chào {result.FullName}!", Severity.Success);
+                    Navigation.NavigateTo("/customers");
+                }
+            }
+            else
+            {
+                Snackbar.Add("Tên đăng nhập hoặc mật khẩu không chính xác.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Lỗi kết nối máy chủ API: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}
