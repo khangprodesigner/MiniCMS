@@ -1,23 +1,99 @@
 ﻿@inherits LayoutComponentBase
+@inject NavigationManager Navigation
+@inject MiniCMS.Web.Services.TokenStorageService TokenService
+@implements IDisposable
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
+<MudThemeProvider />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+@if (isCheckingAuth)
+{
+    <div class="d-flex flex-column justify-center align-center" style="height: 100vh; width: 100vw; background-color: #f8fafc;">
+        <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+        <MudText Typo="Typo.body2" Class="mt-3 text-muted">Đang xác thực hệ thống...</MudText>
     </div>
+}
+else
+{
+    <MudLayout>
+        <MudAppBar Elevation="1" Color="Color.Primary" Dense="true">
+            <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
+            <MudText Typo="Typo.h6" Class="ml-3" Style="font-weight: 600;">CEP MiniCMS</MudText>
+            <MudSpacer />
+            <MudTooltip Text="Đăng xuất">
+                <MudIconButton Icon="@Icons.Material.Filled.Logout" Color="Color.Inherit" title="Đăng xuất" OnClick="@HandleLogout" />
+            </MudTooltip>
+        </MudAppBar>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
+        <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
+            <NavMenu />
+        </MudDrawer>
 
-        <article class="content px-4">
+        <MudMainContent Class="pt-10 px-4 pb-6">
             @Body
-        </article>
-    </main>
-</div>
+        </MudMainContent>
+    </MudLayout>
+}
 
-<div id="blazor-error-ui">
-    An unhandled error has occurred.
-    <a href="" class="reload">Reload</a>
-    <a class="dismiss">🗙</a>
-</div>
+@code {
+    private bool _drawerOpen = true;
+    private bool isCheckingAuth = true;
+
+    private void DrawerToggle()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await VerifyAuthenticationAsync();
+        }
+    }
+
+    private async void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        await VerifyAuthenticationAsync();
+    }
+
+    private async Task VerifyAuthenticationAsync()
+    {
+        var currentUri = Navigation.ToBaseRelativePath(Navigation.Uri).ToLower();
+
+        if (currentUri.StartsWith("login"))
+        {
+            isCheckingAuth = false;
+            StateHasChanged();
+            return;
+        }
+
+        var token = await TokenService.GetTokenAsync();
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        isCheckingAuth = false;
+        StateHasChanged();
+    }
+
+    private async Task HandleLogout()
+    {
+        await TokenService.RemoveTokenAsync();
+        Navigation.NavigateTo("/login");
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
+}
