@@ -30,7 +30,7 @@ public class AuthService : IAuthService
             return null;
         }
 
-        var jwtKey = _configuration["Jwt:Key"] ?? "MiniCMS_Secret_Key_For_Jwt_Token_Signing_2026_CEP_So_Tuyen";
+        var jwtKey = _configuration["Jwt:Key"] ?? "CEP_De_Thi_So_Tuyen_Chuyen_Vien_Phat_Trien_Phan_Mem_Phong_CNTT";
         var jwtIssuer = _configuration["Jwt:Issuer"] ?? "MiniCMS_Api";
         var jwtAudience = _configuration["Jwt:Audience"] ?? "MiniCMS_Client";
         var expiryHours = int.TryParse(_configuration["Jwt:ExpiryHours"], out var hours) ? hours : 8;
